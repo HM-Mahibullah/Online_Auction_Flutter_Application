@@ -1,0 +1,45 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return isAuthenticated();
+    }
+    
+    // Helper function to validate image size (5MB for antiques, 2MB for profiles)
+    function isValidImageSize(maxSizeMB) {
+      return request.resource.size < maxSizeMB * 1024 * 1024;
+    }
+    
+    // Helper function to validate image type
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    // Antique images - only admins can upload
+    match /antiques/{antiqueId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() && 
+                      isImage() && 
+                      isValidImageSize(5);
+      allow delete: if isAdmin();
+    }
+    
+    // Profile images - users can upload their own
+    match /profiles/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && 
+                      request.auth.uid == userId && 
+                      isImage() && 
+                      isValidImageSize(2);
+      allow delete: if isAuthenticated() && request.auth.uid == userId;
+    }
+  }
+}

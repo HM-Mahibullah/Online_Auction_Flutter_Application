@@ -1,0 +1,105 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user is admin (with error handling for non-existent docs)
+    function isAdmin() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true;
+    }
+    
+    // Helper function to check if user owns the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // ==================== USERS COLLECTION ====================
+    // For signup and signin functionality
+    match /users/{userId} {
+      // Anyone authenticated can read any user (for displaying seller info)
+      allow read: if isAuthenticated();
+      
+      // ✅ SIGNUP: Users can create their own document during registration
+      allow create: if isAuthenticated() && 
+                      request.auth.uid == request.resource.data.get('id', request.auth.uid) &&
+                      request.resource.data.keys().hasAll(['email', 'name', 'createdAt']);
+      
+      // ✅ UPDATE: Users can update their own document
+      allow update: if isAuthenticated() && request.auth.uid == resource.id;
+      
+      // Only admins can delete users
+      allow delete: if isAdmin();
+    }
+    
+    // ==================== ANTIQUES COLLECTION ====================
+    match /antiques/{antiqueId} {
+      // Anyone authenticated can read antiques
+      allow read: if isAuthenticated();
+      
+      // ✅ All authenticated users can create antiques
+      allow create: if isAuthenticated() && 
+              request.resource.data.keys().hasAll(['title', 'description', 'basePrice', 'currentBid', 'bidEndTime', 'curatorId', 'isActive', 'totalBids']) &&
+              request.resource.data.basePrice > 0 &&
+              request.resource.data.currentBid == request.resource.data.basePrice &&
+              request.resource.data.bidEndTime > request.time &&
+              request.resource.data.totalBids == 0;
+      
+      // Only admins can fully update antiques
+      // But allow updates to bid-related fields during active auctions
+      allow update: if isAdmin() ||
+                      (isAuthenticated() &&
+                       request.resource.data.bidEndTime == resource.data.bidEndTime &&
+                       request.resource.data.title == resource.data.title &&
+                       request.resource.data.description == resource.data.description &&
+                       request.resource.data.basePrice == resource.data.basePrice &&
+                       request.resource.data.isActive == resource.data.isActive);
+      
+      // Only admins can delete antiques
+      allow delete: if isAdmin();
+    }
+    
+    // ==================== BIDS COLLECTION ====================
+    match /bids/{bidId} {
+      // All authenticated users can read all bids for transparency
+      allow read: if isAuthenticated();
+      
+      // ✅ Authenticated users can create bids with proper validation
+      allow create: if isAuthenticated() &&
+                      request.resource.data.keys().hasAll(['userId', 'antiqueId', 'bidAmount', 'bidTime']) &&
+                      request.resource.data.keys().size() == 4 &&
+                      request.resource.data.userId == request.auth.uid &&
+                      request.resource.data.bidAmount > 0 &&
+                      request.resource.data.bidTime is timestamp;
+      
+      // Users can update their own bids (for status changes during active auctions)
+      // Admins can update any bid
+      allow update: if isAuthenticated() && 
+                      (isOwner(resource.data.userId) || isAdmin());
+      
+      // Only admins can delete bids
+      allow delete: if isAdmin();
+    }
+    
+    // ==================== NOTIFICATIONS COLLECTION ====================
+    match /notifications/{notificationId} {
+      // Users can read their own notifications
+      allow read: if isAuthenticated() && isOwner(resource.data.userId);
+      
+      // Cloud Functions can create notifications (set service account)
+      allow create: if request.auth.uid == null && 
+                       request.resource.data.keys().hasAll(['userId', 'message', 'createdAt']);
+      
+      // Users can update their own notifications (mark as read)
+      allow update: if isAuthenticated() && isOwner(resource.data.userId);
+      
+      // Users can delete their own notifications
+      allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+  }
+}

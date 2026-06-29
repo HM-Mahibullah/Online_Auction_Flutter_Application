@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "366487651612",
+    "project_id": "biddingsystem-a9d3c",
+    "storage_bucket": "biddingsystem-a9d3c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:366487651612:android:f93ecbc3ecd9e3392c66d9",
+        "android_client_info": {
+          "package_name": "com.example.antique"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "366487651612-bum8dv2v347q9kqe2va0fn3gj8febjpd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyACXsk32250cLUqVz5WEm2JTabbjnKsnAY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "366487651612-bum8dv2v347q9kqe2va0fn3gj8febjpd.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
